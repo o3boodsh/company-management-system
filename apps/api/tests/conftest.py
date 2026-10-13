@@ -10,6 +10,7 @@ from app.core.config import Settings
 
 @pytest.fixture(autouse=True)
 def isolated_environment(monkeypatch):
+    monkeypatch.delenv("MIGRATION_OPERATION_OPT_IN", raising=False)
     for field in Settings.model_fields.values():
         monkeypatch.delenv(field.alias, raising=False)
     monkeypatch.setenv("APP_ENV", "test")

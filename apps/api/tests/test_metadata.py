@@ -253,7 +253,7 @@ def test_online_environment_refuses_before_configuring_or_running(monkeypatch):
     monkeypatch.setattr(context, "configure", forbidden)
     monkeypatch.setattr(context, "run_migrations", forbidden)
     spec = importlib.util.spec_from_file_location("companyos_online_guard", API_ROOT / "alembic/env.py")
-    with pytest.raises(RuntimeError, match="Online Alembic execution is disabled"):
+    with pytest.raises(RuntimeError, match="Online migration configuration"):
         spec.loader.exec_module(importlib.util.module_from_spec(spec))
 
 

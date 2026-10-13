@@ -198,3 +198,37 @@ No public preview or production bypass is permitted. Before public release, use 
 Current models describe salary DECIMAL(12,2) NOT NULL and hire_date DATE NULL without server/client date defaults. Chain: b0_company_schema → t1_salary_precision → t2_hire_date_default. Historical B0 is unchanged. T1 automatic downgrade is disabled; T2 reverse source affects only future-insert defaults. No migration was applied/stamped; online execution remains disabled. S1-03 results above are historical.
 
 From apps/api, the verified interpreter executed `-m pytest tests/test_metadata.py tests/test_target_metadata.py -q` (26 passed), `-m pytest -q` (171 passed, 0 failed, 1 existing Starlette/httpx warning), and `-m alembic history --verbose` (sole T2 head). These commands inspect/test source; no upgrade/downgrade/stamp CLI is authorized. GitHub reviewed base is 3283eaba1bb0edec762de6d20aa56ef279c5ef9f. S1-04 staging/commit/push requires separate review. Dependency locking remains deferred; provisioning remains separately gated.
+
+## S1-05E guarded online configuration — no live execution
+
+The owner reports an empty companyos_dev on MySQL 8.0.34 at 127.0.0.1:3306 with separate scoped migrator/runtime accounts. This task did not independently connect or verify provisioning. Reviewed Git base is 1601974d735f52cd606b65207281df2ac3754225.
+
+[migration.py](apps/api/app/db/migration.py) is invoked only by Alembic's online branch. Before Engine creation it requires APP_ENV=local, existing safe local settings (including explicit AUTH_MODE=development-stub), MIGRATION_OPERATION_OPT_IN=approved and a nonempty MIGRATION_DATABASE_URL parsed using existing Settings/make_url guards. Exact driver mysql+pymysql, host 127.0.0.1, explicit port 3306, database companyos_dev and username companyos_migrator are required. Root/runtime accounts, alternate targets, controls, fragments and query options are rejected. DATABASE_URL, TEST_DATABASE_URL, Alembic configuration URLs and supplied external connections are not used as fallbacks.
+
+The opt-in is an operator guard, not proof of owner authorization. Do not set it or invoke a database-reading/writing Alembic operation until its exact command is separately approved. Offline compilation and history still need no settings or database. There are no startup migrations or runtime engine changes. The online path uses NullPool, bounded driver timeouts, echo=False and hide_parameters=True, closes/disposes resources and emits generic failures without driver text. MySQL DDL can partially commit; a generic failure requires state inspection, not automatic retry/downgrade/stamp.
+
+Local credential proposal: in a private, non-recorded PowerShell terminal, enter the complete percent-encoded migration DSN using Read-Host -AsSecureString, then transfer it in memory into the process environment. Do not type the DSN into shell command text, save it to scripts, capture terminal output, or send it to Codex. No file or secret retrieval was performed here; .env is not automatically loaded. Environment values are plaintext in process memory and visible to sufficiently privileged local tools; this is transient local handling, not a secret vault.
+
+The following setup is proposed, NOT executed. It opens no connection and intentionally leaves migration opt-in unset:
+
+```powershell
+$env:APP_ENV='local'
+$env:AUTH_MODE='development-stub'
+Remove-Item Env:MIGRATION_OPERATION_OPT_IN -ErrorAction SilentlyContinue
+$migrationSecret = Read-Host 'Enter migration DSN privately' -AsSecureString
+$migrationPointer = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($migrationSecret)
+try {
+    $env:MIGRATION_DATABASE_URL = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($migrationPointer)
+} finally {
+    [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($migrationPointer)
+    $migrationSecret.Dispose()
+    Remove-Variable migrationSecret,migrationPointer
+}
+# When finished with a separately approved operation:
+Remove-Item Env:MIGRATION_DATABASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:MIGRATION_OPERATION_OPT_IN -ErrorAction SilentlyContinue
+```
+
+Do not run the cleanup before an approved operation needs the environment; no operation is approved by this example. URL passwords must be correctly percent-encoded. No real/example credential or full DSN is supplied here. Future runtime configuration uses companyos_app and must never receive migration credentials. Local development identity must never be exposed publicly.
+
+Actual verification: initial targeted run 40 passed/1 failed (empty-DSN redaction boundary), then corrected complete suite **207 passed, 0 failed, 1 existing Starlette/httpx warning**. New tests use synthetic in-memory URLs and fake Engines/connections/context; real Engine/socket entry points remain forbidden. History still reports B0 → T1 → T2. No credential setup, authentication preflight, migration operation, schema mutation or Git publication occurred. Readiness remains unimplemented. Owner approval is required separately for credentials/live preflight, migrations and Git update.
