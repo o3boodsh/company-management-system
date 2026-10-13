@@ -1,0 +1,81 @@
+# Environment files and secrets; only credential-free examples are versioned
+.env
+.env.*
+*.env
+*.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+service-account*.json
+secrets/
+
+# Python environments, caches, packaging, coverage
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# Node / Next.js and generated artifacts
+node_modules/
+.next/
+out/
+.turbo/
+.vercel/
+dist/
+build/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+playwright-report/
+test-results/
+
+# Logs and local tooling state
+*.log
+logs/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+.idea/
+.vscode/
+
+# Real backups, dumps, and disposable data; do not blanket-ignore SQL evidence
+backups/
+dumps/
+disposable-data/
+.local-data/
+tmp/
+temp/
+*.bak
+*.backup
+*.dump
+*.sql.gz
+*.sql.zip
+*.sqlite
+*.sqlite3
+*.db
+/database/backups/
+/database/dumps/
+/database/local-data/
+/database/test-data/
+
+# Dependency lockfiles and reviewed migrations remain versionable.
+# database/company_schema.sql and database/legacy-sql/*.sql remain versionable.
