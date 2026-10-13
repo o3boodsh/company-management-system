@@ -152,4 +152,10 @@ FastAPI/Pydantic requests and responses use separate allowlists for roles. Decim
 
 **Confirmed environment boundary:** preserve company_db; companyos_dev is the approved isolated target, with provisioning separately gated. companyos_test remains proposed. **Recommendations, not additional scope:** use exact Decimal types; retain existing constraint names; defer all new indexes/tables; validate nonblank input in the application first. No audit/history or currency-conversion subsystem is proposed. Mixing/importing training records is outside the confirmed scope; a global USD setting cannot establish row provenance.
 
-Ready for review and subsequent API architecture planning, with unresolved decisions clearly bounded. No executable model or migration is included. See [migration plan](database-migration-plan.md) for fresh versus populated database adoption.
+The above Phase 0 specification retains unresolved decisions. See [migration plan](database-migration-plan.md) for fresh versus populated database adoption.
+
+## S1-03 implementation evidence
+
+Baseline models now exist in [models.py](../apps/api/app/db/models.py), using [Base](../apps/api/app/db/base.py). Exactly four tables and 16 columns preserve the exported types, signed IDs, nullability, server defaults, named constraints/indexes and table options. Parent collections use passive_deletes="all" with no ORM delete cascades. Unique keys are represented once; no additional business tables/indexes or exported AUTO_INCREMENT counters are introduced.
+
+Salary remains DECIMAL(10,0) and hire_date retains (curdate()) in B0; T1/D02 precision and T2/D05 default removal remain pending. USD semantics do not relabel training records. Offline definition/compilation tests pass; database enforcement and loaded/unloaded deletion behavior still require separately approved isolated integration testing. No database or Engine was created or accessed.

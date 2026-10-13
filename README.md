@@ -4,11 +4,11 @@ CompanyOS is a single-company management MVP and portfolio project. The goal is 
 
 ## Current status
 
-Phase 0 planning is complete. **S1-02 adds explicit startup configuration and safety to the working FastAPI liveness endpoint:** GET /api/v1/health/live. Liveness has no database, credential, or identity dependency. Application startup now validates explicit APP_ENV/AUTH_MODE; importing the app does not load settings or connect. Employee/business endpoints, readiness, real authentication, Next.js, and migrations are not implemented.
+Phase 0 planning is complete. S1-02 provides startup configuration and safety for GET /api/v1/health/live. **S1-03 adds four baseline ORM models and a manually authored, unapplied Alembic B0 revision.** Liveness has no database, credential, or identity dependency. Startup validates explicit APP_ENV/AUTH_MODE; importing the app does not load settings or connect. Business endpoints, readiness, real authentication and Next.js are not implemented.
 
 The owner installed Python and dependencies globally before this task. This bootstrap reused that environment; it did not install/upgrade packages, create a virtual environment, initialize Git, connect to MySQL, or deploy anything. No dependency manifests or lockfiles have been generated. Isolated project dependency management and reproducible locking remain future improvements requiring review.
 
-The schema export describes an exported MySQL state, not a fresh inspection of live company_db. Existing SQL is preserved as evidence and must not be run as an application setup script. Git was not initialized when checked; no initialization, commit, remote creation, or push was performed.
+The schema export describes an exported MySQL state, not a fresh inspection of live company_db. Existing SQL is preserved as evidence and must not be run as an application setup script. The reviewed initial commit is 2e30bebbd0064b70d48c851a6c11736491e2250f on main at origin https://github.com/o3boodsh/company-management-system. Legacy practice SQL remains local and untracked. S1-03 changes require separate approval before staging, committing or pushing.
 
 ## MVP scope and stack
 
@@ -34,6 +34,11 @@ company-management-system/
 ├── apps/
 │   ├── api/
 │   │   ├── .env.example
+│   │   ├── alembic.ini
+│   │   ├── alembic/
+│   │   │   ├── env.py
+│   │   │   ├── script.py.mako
+│   │   │   └── versions/b0_company_schema.py
 │   │   ├── app/
 │   │   │   ├── __init__.py
 │   │   │   ├── main.py
@@ -44,7 +49,9 @@ company-management-system/
 │   │   │   │   └── errors.py
 │   │   │   ├── db/
 │   │   │   │   ├── __init__.py
-│   │   │   │   └── session.py
+│   │   │   │   ├── session.py
+│   │   │   │   ├── base.py
+│   │   │   │   └── models.py
 │   │   │   └── system/
 │   │   │       ├── __init__.py
 │   │   │       └── router.py
@@ -54,6 +61,7 @@ company-management-system/
 │   │       ├── test_identity.py
 │   │       ├── test_errors.py
 │   │       ├── test_session_lifecycle.py
+│   │       ├── test_metadata.py
 │   │       └── test_health_live.py
 │   └── web/
 │       └── .env.example
@@ -137,8 +145,8 @@ All tests block Engine construction/Engine connections and outbound socket.creat
 
 ## Planned setup — not executed
 
-1. Review completed S1-02 configuration/safety before authorizing S1-03.
-2. Initialize version control if approved. Review the ignore rules and files before staging.
+1. Review completed S1-03 offline baseline and tests; approve its Git update separately.
+2. Keep selective staging and secret review for every subsequent commit; version control is already initialized.
 3. Review isolated dependency management for apps/api and initialize apps/web only in a later authorized phase.
 4. Configure local ignored environment files from the examples. Empty credential/auth values intentionally make the examples nonfunctional; do not invent production credentials or enable a stub publicly.
 5. After separate authorization, provision isolated development/test databases, create their schema through reviewed Alembic migrations, and use synthetic fixtures. Do not reuse training records as USD data.
@@ -146,15 +154,34 @@ All tests block Engine construction/Engine connections and outbound socket.creat
 
 Only the local health API is runnable using the commands above. [phase-1-start.md](docs/phase-1-start.md) and the [backlog](docs/implementation-backlog.md) retain the earlier planning commands; this task's owner authorization specifically used the installed global interpreter without venv creation, installation, manifests or lockfiles. Those planned setup actions were not executed.
 
-Recommended Git commands for the owner to run later from this folder (not executed):
+Read-only Git inspection commands from this folder:
 
 ```powershell
-git init -b main
 git status --short --untracked-files=all
 git check-ignore -v --no-index apps/api/.env apps/web/.env.local
 ```
 
 Review files before selectively staging. This document does not instruct an automatic commit, remote, or push. `.gitignore` does not protect files already tracked or replace a secret review.
+
+## S1-03 offline baseline — implemented, not applied
+
+[models.py](apps/api/app/db/models.py) maps Department, Employee, Project and EmployeeProject through [Base](apps/api/app/db/base.py). The baseline has 16 columns, four primary keys (including the ordered assignment pair), three foreign keys, three unique keys, two nonunique indexes and three CHECKs. MySQL signed INT, nullability, server defaults, InnoDB, utf8mb4 and utf8mb4_0900_ai_ci are preserved. No delete/delete-orphan cascade, Engine, startup migration or create_all is added.
+
+[B0](apps/api/alembic/versions/b0_company_schema.py) is independent of mutable models. It creates departments, projects, employees, then employee_projects; explicitly named supporting indexes precede foreign-key creation. It retains salary DECIMAL(10,0) and hire_date DEFAULT (curdate()), and excludes dump AUTO_INCREMENT counters and all data. D02 precision/T1 and D05 default/T2 remain pending. Its authored teardown is not a populated-database recovery strategy and was not invoked.
+
+From apps/api, these commands were executed successfully during S1-03:
+
+```powershell
+& 'C:\Users\artis\AppData\Local\Programs\Python\Python313\python.exe' -m pytest tests/test_metadata.py -q
+& 'C:\Users\artis\AppData\Local\Programs\Python\Python313\python.exe' -m pytest -q
+& 'C:\Users\artis\AppData\Local\Programs\Python\Python313\python.exe' -m alembic history --verbose
+```
+
+Results: targeted 14 passed; complete suite **159 passed, 0 failed, 1 existing Starlette/httpx warning**. History reports b0_company_schema as the sole root/head, parent <base>. History does not execute env.py. Offline tests compare both model and revision definitions with the read-only export, compile MySQL DDL into memory and guard connection/startup-migration entry points. Liveness remains HTTP 200 with {"data":{"status":"ok"}} in TestClient, including a guarded cold-process startup. No external server was started for S1-03.
+
+env.py refuses online execution and configures only the MySQL dialect for offline validation, with no connection URL. No upgrade/downgrade/stamp CLI command or SQL against a database was executed. Actual MySQL constraint enforcement, default behavior, collation and restore reliability remain unverified. companyos_dev provisioning/access/application of B0 require separate approval; companyos_test still requires target approval as well.
+
+Installed SQLAlchemy 2.1.4 and Alembic 1.20.0 were verified and reused. Dependencies remain global. Although pip-tools is available, approved dependency inputs and a complete reproducible lock have not been established; isolation and locking are a separately reviewed follow-up, not a pip freeze presented as a lockfile.
 
 ## Local versus public release
 

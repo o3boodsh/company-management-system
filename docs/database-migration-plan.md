@@ -91,4 +91,12 @@ Execution blockers: D02 precision, D05 default change, actual schema equivalence
 
 Confirmed direction: preserve training company_db unchanged and use isolated companyos_dev after separate provisioning authorization. companyos_test needs explicit target approval. Both adoption paths are retained for traceability, but only the fresh-database path is in the backlog. No new business tables/indexes, conversion system, or executable migration is proposed beyond the reviewed two-column delta.
 
-This plan is ready for review alongside the ERDs and model specification. See [implementation-backlog.md](implementation-backlog.md) for ordered tasks; wait for owner review before implementation.
+See [implementation-backlog.md](implementation-backlog.md) for ordered tasks; each later implementation/execution gate still requires owner approval.
+
+## S1-03 offline B0 implementation evidence
+
+[b0_company_schema.py](../apps/api/alembic/versions/b0_company_schema.py) is manually authored with revision b0_company_schema, down_revision=None and no branch/dependency. It is independent of application models. Creation order is departments → projects → employees → employee_projects; named supporting indexes are created before adding foreign keys. Reverse-order teardown is authored but not invoked and must never be used as populated-database recovery.
+
+B0 preserves DECIMAL(10,0), (curdate()), all existing constraint/index names and table engine/charset/collation. It has no training rows, conversion, target T1/T2 changes or dump AUTO_INCREMENT counters. [env.py](../apps/api/alembic/env.py) explicitly rejects online execution; it contains no engine or connection configuration. Enabling an online path later requires a separately reviewed change and execution authorization.
+
+Actual verification: 14 targeted offline tests pass; complete backend suite 159 passed, 0 failed, 1 existing warning. Alembic history reports the sole B0 root/head. Tests render revision operations into an in-memory buffer and compare definitions against the original export; no SQL is executed against a database and no CLI upgrade/downgrade/stamp, reflection or autogenerate runs. Schema acceptance by a real MySQL server, data preservation and recovery remain unverified until approved isolated rehearsals. Neither company_db nor companyos_dev was accessed; companyos_test remains proposed. Dependency isolation/locking remains a separate follow-up.
