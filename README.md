@@ -4,7 +4,7 @@ CompanyOS is a single-company management MVP and portfolio project. The goal is 
 
 ## Current status
 
-Phase 0 planning is complete. S1-02 provides startup configuration and safety for GET /api/v1/health/live. **S1-03 adds four baseline ORM models and a manually authored, unapplied Alembic B0 revision.** Liveness has no database, credential, or identity dependency. Startup validates explicit APP_ENV/AUTH_MODE; importing the app does not load settings or connect. Business endpoints, readiness, real authentication and Next.js are not implemented.
+Phase 0 planning is complete. S1-02 provides startup configuration and safety for GET /api/v1/health/live. **S1-04 adds approved target ORM metadata and unapplied T1/T2 revisions after immutable B0.** Liveness has no database, credential, or identity dependency. Startup validates explicit APP_ENV/AUTH_MODE; importing the app does not load settings or connect. Business endpoints, readiness, real authentication and Next.js are not implemented.
 
 The owner installed Python and dependencies globally before this task. This bootstrap reused that environment; it did not install/upgrade packages, create a virtual environment, initialize Git, connect to MySQL, or deploy anything. No dependency manifests or lockfiles have been generated. Isolated project dependency management and reproducible locking remain future improvements requiring review.
 
@@ -25,7 +25,7 @@ The backend is a modular monolith with versioned `/api/v1` REST routers, schemas
 
 Owner-approved: **all new approved MVP monetary values are USD; salaries are monthly USD and project budgets are USD**. No import, currency conversion or relabeling of existing training records. The owner requires Arabic learning-oriented explanations before implementation and exact command/result reporting afterward.
 
-Approved: isolated companyos_dev as the MVP development target, with creation separately gated. Still proposed: companyos_test, salary DECIMAL(12,2), removal of the hire-date automatic default, operational policies, and final access matrix. Preserve company_db, four business entities, employee_status, restrictive foreign keys, and the composite assignment key. See the [decision register](docs/open-decisions.md) for partial approvals; currency approval does not approve schema changes or execution.
+Approved: isolated companyos_dev as the MVP development target, with creation separately gated. Approved in S1-04: salary DECIMAL(12,2) and nullable hire_date without automatic default; execution remains gated. Still proposed: companyos_test, operational policies, and final access matrix. Preserve company_db, four business entities, employee_status, restrictive foreign keys, and the composite assignment key. See the [decision register](docs/open-decisions.md) for partial approvals; currency approval does not approve schema changes or execution.
 
 ## Actual project tree
 
@@ -38,7 +38,10 @@ company-management-system/
 │   │   ├── alembic/
 │   │   │   ├── env.py
 │   │   │   ├── script.py.mako
-│   │   │   └── versions/b0_company_schema.py
+│   │   │   └── versions/
+│   │   │       ├── b0_company_schema.py
+│   │   │       ├── t1_salary_precision.py
+│   │   │       └── t2_hire_date_default.py
 │   │   ├── app/
 │   │   │   ├── __init__.py
 │   │   │   ├── main.py
@@ -62,6 +65,7 @@ company-management-system/
 │   │       ├── test_errors.py
 │   │       ├── test_session_lifecycle.py
 │   │       ├── test_metadata.py
+│   │       ├── test_target_metadata.py
 │   │       └── test_health_live.py
 │   └── web/
 │       └── .env.example
@@ -167,7 +171,7 @@ Review files before selectively staging. This document does not instruct an auto
 
 [models.py](apps/api/app/db/models.py) maps Department, Employee, Project and EmployeeProject through [Base](apps/api/app/db/base.py). The baseline has 16 columns, four primary keys (including the ordered assignment pair), three foreign keys, three unique keys, two nonunique indexes and three CHECKs. MySQL signed INT, nullability, server defaults, InnoDB, utf8mb4 and utf8mb4_0900_ai_ci are preserved. No delete/delete-orphan cascade, Engine, startup migration or create_all is added.
 
-[B0](apps/api/alembic/versions/b0_company_schema.py) is independent of mutable models. It creates departments, projects, employees, then employee_projects; explicitly named supporting indexes precede foreign-key creation. It retains salary DECIMAL(10,0) and hire_date DEFAULT (curdate()), and excludes dump AUTO_INCREMENT counters and all data. D02 precision/T1 and D05 default/T2 remain pending. Its authored teardown is not a populated-database recovery strategy and was not invoked.
+[B0](apps/api/alembic/versions/b0_company_schema.py) is independent of mutable models. It creates departments, projects, employees, then employee_projects; explicitly named supporting indexes precede foreign-key creation. It retains salary DECIMAL(10,0) and hire_date DEFAULT (curdate()), and excludes dump AUTO_INCREMENT counters and all data. D02 precision/T1 and D05 default/T2 were approved in S1-04; execution remains gated. Its authored teardown is not a populated-database recovery strategy and was not invoked.
 
 From apps/api, these commands were executed successfully during S1-03:
 
@@ -188,3 +192,9 @@ Installed SQLAlchemy 2.1.4 and Alembic 1.20.0 were verified and reused. Dependen
 Local development may use synthetic data and an explicitly development-only identity stub with real permission checks. Proposed Viewer responses omit salary, employee email, hire_date, and project budget; nested responses and search/counts obey the same policy. The final field allowlist remains pending owner review.
 
 No public preview or production bypass is permitted. Before public release, use real provider-backed authentication, backend role enforcement, HTTPS, safe CORS/session handling, private database networking, backups/restore verification, and approved deployment settings. No passwords, tokens, personal data dumps, or real backups belong in Git. The project is not production-ready.
+
+## S1-04 — approved target, no database execution
+
+Current models describe salary DECIMAL(12,2) NOT NULL and hire_date DATE NULL without server/client date defaults. Chain: b0_company_schema → t1_salary_precision → t2_hire_date_default. Historical B0 is unchanged. T1 automatic downgrade is disabled; T2 reverse source affects only future-insert defaults. No migration was applied/stamped; online execution remains disabled. S1-03 results above are historical.
+
+From apps/api, the verified interpreter executed `-m pytest tests/test_metadata.py tests/test_target_metadata.py -q` (26 passed), `-m pytest -q` (171 passed, 0 failed, 1 existing Starlette/httpx warning), and `-m alembic history --verbose` (sole T2 head). These commands inspect/test source; no upgrade/downgrade/stamp CLI is authorized. GitHub reviewed base is 3283eaba1bb0edec762de6d20aa56ef279c5ef9f. S1-04 staging/commit/push requires separate review. Dependency locking remains deferred; provisioning remains separately gated.

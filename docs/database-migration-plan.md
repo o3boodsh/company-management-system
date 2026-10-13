@@ -10,13 +10,13 @@ Owner-confirmed: all new MVP monetary values are USD, salaries monthly and budge
 
 ## Proposed logical revision order
 
-Labels below are planning labels, not generated revision IDs or commands.
+Labels below identify the design stages; exact authored revision IDs are recorded in the S1-04 section. No database execution has occurred.
 
 | Revision | Intended content | Gate |
 |---|---|---|
 | B0 exported baseline | Create the four exported table definitions with existing names, types, defaults, constraints, and indexes | Review exact baseline against authoritative export; test in isolated MySQL |
-| T1 salary precision | employees.salary DECIMAL(10,0) → DECIMAL(12,2), preserving NOT NULL, no default, and nonnegative CHECK | Explicit precision approval and execution authorization |
-| T2 hire-date default | Remove current-date expression default, keep nullable DATE and all existing values | D05 approval and execution authorization |
+| T1 salary precision | employees.salary DECIMAL(10,0) → DECIMAL(12,2), preserving NOT NULL, no default, and nonnegative CHECK | D02 approved; separate execution authorization required |
+| T2 hire-date default | Remove current-date expression default, keep nullable DATE and all existing values | D05 approved; separate execution authorization required |
 
 B0 creation order: departments, projects, employees, employee_projects. Departments precede employees; both employee/project parents precede assignments. Keep FK enforcement enabled and avoid recreating the dump's out-of-order dependency handling. No fixture data belongs in the baseline migration. Exported AUTO_INCREMENT counters are not copied as schema requirements into a fresh empty database.
 
@@ -87,7 +87,7 @@ MySQL DDL can cause implicit commits. Do not assume wrapping a multi-revision mi
 
 ## Remaining approvals and recommendations
 
-Execution blockers: D02 precision, D05 default change, actual schema equivalence, tested recovery, and explicit migration authorization. Data boundary: D20 no-import/no-conversion/no-relabeling is confirmed and must be enforced. API policy blockers: lifecycle/assignment rules and D09/D18 role/field contracts. Public-release blockers: concrete identity/session and hosting choices and production security gates.
+Execution blockers: actual schema equivalence, tested recovery, and explicit migration authorization. Data boundary: D20 no-import/no-conversion/no-relabeling is confirmed and must be enforced. API policy blockers: lifecycle/assignment rules and D09/D18 role/field contracts. Public-release blockers: concrete identity/session and hosting choices and production security gates.
 
 Confirmed direction: preserve training company_db unchanged and use isolated companyos_dev after separate provisioning authorization. companyos_test needs explicit target approval. Both adoption paths are retained for traceability, but only the fresh-database path is in the backlog. No new business tables/indexes, conversion system, or executable migration is proposed beyond the reviewed two-column delta.
 
@@ -100,3 +100,11 @@ See [implementation-backlog.md](implementation-backlog.md) for ordered tasks; ea
 B0 preserves DECIMAL(10,0), (curdate()), all existing constraint/index names and table engine/charset/collation. It has no training rows, conversion, target T1/T2 changes or dump AUTO_INCREMENT counters. [env.py](../apps/api/alembic/env.py) explicitly rejects online execution; it contains no engine or connection configuration. Enabling an online path later requires a separately reviewed change and execution authorization.
 
 Actual verification: 14 targeted offline tests pass; complete backend suite 159 passed, 0 failed, 1 existing warning. Alembic history reports the sole B0 root/head. Tests render revision operations into an in-memory buffer and compare definitions against the original export; no SQL is executed against a database and no CLI upgrade/downgrade/stamp, reflection or autogenerate runs. Schema acceptance by a real MySQL server, data preservation and recovery remain unverified until approved isolated rehearsals. Neither company_db nor companyos_dev was accessed; companyos_test remains proposed. Dependency isolation/locking remains a separate follow-up.
+
+## S1-04 target sources — not applied
+
+Chain: b0_company_schema → t1_salary_precision → t2_hire_date_default (sole head). [T1](../apps/api/alembic/versions/t1_salary_precision.py) alters only salary precision/scale, retaining NOT NULL and CHECK. [T2](../apps/api/alembic/versions/t2_hire_date_default.py) removes only the hire_date server default, retaining DATE NULL. Neither source imports runtime models or modifies rows. B0 remains immutable.
+
+T1 downgrade raises before emitting any operation to prevent fractional loss. There is no override: even a verified integral dataset requires separately reviewed recovery code and authorization. T2 reverse source restores (curdate()) for future inserts only, never stored dates. No downgrade CLI was run. Online env.py remains disabled; future provisioning must select and apply the reviewed chain before using target models. company_db remains excluded.
+
+S1-04 verification: targeted 26 passed; full suite 171 passed, 0 failed, 1 existing Starlette/httpx warning. History confirms the three-revision chain. SQL was rendered in memory only; live enforcement, preservation and recovery remain unverified.

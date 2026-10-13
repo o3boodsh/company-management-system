@@ -153,9 +153,13 @@ class RecordingOperations:
 
 
 @pytest.mark.parametrize("table_name", TABLE_ORDER)
-def test_model_table_matches_every_exported_definition(table_name):
+def test_baseline_table_matches_every_exported_definition(table_name, monkeypatch):
     expected = exported_schema()[table_name]
-    actual = table_snapshot(Base.metadata.tables[table_name])
+    revision = load_revision()
+    recorder = RecordingOperations()
+    monkeypatch.setattr(revision, "op", recorder)
+    revision.upgrade()
+    actual = table_snapshot(recorder.metadata.tables[table_name])
     assert list(actual["columns"]) == list(expected["columns"])
     assert actual == expected
 
@@ -186,7 +190,7 @@ def test_revision_matches_export_and_model_independently(monkeypatch):
     assert list(recorder.metadata.tables) == TABLE_ORDER
     for name in TABLE_ORDER:
         assert table_snapshot(recorder.metadata.tables[name]) == exported_schema()[name]
-        assert table_snapshot(recorder.metadata.tables[name]) == table_snapshot(Base.metadata.tables[name])
+        # Baseline is compared to historical evidence, independently of target models.
     assert recorder.events == [
         ("table", "departments"), ("table", "projects"), ("table", "employees"),
         ("index", "employees", "department_id"), ("fk", "employees", "employees_ibfk_1"),
@@ -207,8 +211,8 @@ def test_mysql_ddl_compiles_without_engine_or_connection():
         for index in table.indexes:
             assert index.name in str(CreateIndex(index).compile(dialect=dialect))
     employees = str(CreateTable(Employee.__table__).compile(dialect=dialect))
-    assert "DECIMAL(10, 0)" in employees
-    assert "DEFAULT (curdate())" in employees
+    assert "DECIMAL(12, 2)" in employees
+    assert "curdate()" not in employees
     assert "_utf8mb4'On Leave'" in employees
 
 
@@ -221,6 +225,8 @@ def test_actual_alembic_operations_render_into_memory_only():
     with Operations.context(migration_context):
         load_revision().upgrade()
     ddl = buffer.getvalue()
+    assert "DECIMAL(10, 0)" in ddl
+    assert "DEFAULT (curdate())" in ddl
     assert re.findall(r"CREATE TABLE (\w+)", ddl) == TABLE_ORDER
     assert len(re.findall(r"ADD CONSTRAINT .*?FOREIGN KEY", ddl)) == 3
     assert ddl.index("CREATE INDEX department_id") < ddl.index("ADD CONSTRAINT employees_ibfk_1")
@@ -231,10 +237,10 @@ def test_actual_alembic_operations_render_into_memory_only():
 
 def test_alembic_history_is_one_root_revision_without_settings():
     script = ScriptDirectory.from_config(Config(str(API_ROOT / "alembic.ini")))
-    assert script.get_heads() == ["b0_company_schema"]
+    assert script.get_heads() == ["t2_hire_date_default"]
     revisions = list(script.walk_revisions())
-    assert len(revisions) == 1
-    assert revisions[0].down_revision is None
+    assert [r.revision for r in revisions] == ["t2_hire_date_default", "t1_salary_precision", "b0_company_schema"]
+    assert revisions[-1].down_revision is None
 
 
 def test_online_environment_refuses_before_configuring_or_running(monkeypatch):

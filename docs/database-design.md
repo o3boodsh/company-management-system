@@ -1,6 +1,6 @@
 # CompanyOS database design specification
 
-Status: Phase 0 review draft, 2026-10-11. Documentation only; no database access, SQL execution, model implementation, or migration generation.
+Status: Phase 0 specification with S1-03/S1-04 offline source updates; no database access, SQL execution or migration application.
 
 ## Authority and confirmed semantics
 
@@ -18,7 +18,7 @@ No views, routines, triggers, events, or application identity tables are defined
 
 “None declared” means no explicit DEFAULT clause. Generated IDs are supplied by AUTO_INCREMENT, not a literal default. Target values are identical unless shown otherwise.
 
-| Table.column | Current MySQL type | Nullable | Current default | Generated/key role | Proposed target difference |
+| Table.column | Current MySQL type | Nullable | Current default | Generated/key role | Approved target difference |
 |---|---|---|---|---|---|
 | departments.department_id | INT | No | None declared | AUTO_INCREMENT; PK | None |
 | departments.department_name | VARCHAR(100) | No | None declared | Unique department_name | None |
@@ -77,12 +77,12 @@ The export renders status literals with utf8mb4 introducers and nested parenthes
 
 Nullable UNIQUE email permits multiple NULL entries; optional does not mean duplicate non-NULL values. Name/email comparisons inherit case/accent-insensitive collation; status comparison is not exact-case validation. NOT NULL does not prohibit whitespace-only strings. Email syntax and role vocabulary are not validated by the database. [MySQL unique-index semantics](https://dev.mysql.com/doc/refman/8.0/en/create-index.html), [collation naming](https://dev.mysql.com/doc/refman/8.0/en/charset-collation-names.html)
 
-## Proposed physical delta and preserved structure
+## Approved physical delta and preserved structure
 
 | Change | Reason | Data effect intended | Approval |
 |---|---|---|---|
-| employees.salary DECIMAL(10,0) → DECIMAL(12,2) | Two fractional digits while preserving ten integer digits | Same numeric values, represented with two decimal places; no multiplication, division, conversion, or currency labeling | D02 precision pending |
-| Remove employees.hire_date current-date default | Unknown hire dates should remain unknown | Existing dates unchanged; future omitted dates become NULL | D05 pending |
+| employees.salary DECIMAL(10,0) → DECIMAL(12,2) | Two fractional digits while preserving ten integer digits | Same numeric values, represented with two decimal places; no multiplication, division, conversion, or currency labeling | D02 approved; execution separately gated |
+| Remove employees.hire_date current-date default | Unknown hire dates should remain unknown | Existing dates unchanged; future omitted dates become NULL | D05 approved; execution separately gated |
 
 Current checked salary range is 0–9,999,999,999; target is 0–9,999,999,999.99. Budget retains its existing nonnegative DECIMAL(12,2) range and nullable state. No rounding policy is implied: proposed input validation rejects excess fractional precision.
 
@@ -111,12 +111,12 @@ Existing constraints are verified facts; API rules below are proposed acceptance
 |---|---|---|
 | IDs | Server generates parent IDs; assignment requires both existing parent IDs; no client key rewrites | PK/FK facts; FR-E01, FR-P02; US-E01/P02 |
 | Names/role | Required, trim boundaries, reject blank; lengths 100 employee/department, 150 project, 50 role; employee names may repeat | Length/nullability facts; nonblank policy proposed D08; US-E01/D01/P01/P02 |
-| Salary | Required finite exact decimal, >=0, within storage range; reject >2 decimals only after target migration, >0 fractional digits before it; no silent rounding | CHECK/type facts; precision proposed D02; US-E01/E03 |
+| Salary | Required finite exact decimal, >=0, within storage range; reject >2 decimals only after target migration, >0 fractional digits before it; no silent rounding | CHECK/type facts; precision approved D02; US-E01/E03 |
 | Salary meaning | USD per month for new approved MVP data only; never automatically reinterpret legacy values | Owner-confirmed D02/D20; enforce no-import boundary |
 | Email | Optional; blank → NULL, validate syntax if supplied; <=150; unique under DB collation; race-safe conflict handling | UNIQUE fact; input rules proposed D03; US-E01/E03 |
 | Department | Optional; NULL clears; non-NULL must reference an existing department | FK fact; D04; US-E05 |
 | Status | Canonical Active/Inactive/On Leave application values; missing create status Active; proposed deactivate/reactivate rules; no hard delete | Existing default/CHECK; proposed D06/D07; US-E04 |
-| Hire date | Optional valid date-only value; target omission/explicit NULL means unknown; no today substitution; partial omission leaves existing value | Proposed D05; US-E01/E03 |
+| Hire date | Optional valid date-only value; target omission/explicit NULL means unknown; no today substitution; partial omission leaves existing value | Approved D05; US-E01/E03 |
 | Project | Required valid start date, future allowed; optional finite budget >=0 and <=9,999,999,999.99, max two fractional digits; currency USD for new approved MVP data, never inferred for training rows | Schema facts; proposed application rules; D20; US-P01 |
 | Uniqueness | Department/project names unique; assignment pair unique; concurrent duplicates rejected, never silently overwrite role | Existing keys; D08; US-D01/P01/P02 |
 | Assignment eligibility | Proposed: block new Inactive assignments; allow Active/On Leave; preserve existing memberships on deactivation; allow explicit role edit/removal | D06 pending; US-P02/P03 |
@@ -148,7 +148,7 @@ FastAPI/Pydantic requests and responses use separate allowlists for roles. Decim
 
 ## Owner blockers versus recommendations
 
-**Blockers before the relevant action:** review target precision/default changes (D02 precision, D05); enforce confirmed D20 training isolation; obtain companyos_test approval (D21); approve operational policies and Viewer allowlist (D06–D10/D18) before API contract sign-off; choose identity/session and hosting before public implementation/deployment (D09/D17). Current database equivalence, backup validity, and execution authorization are mandatory operational gates, not facts established by this document.
+**Blockers before the relevant action:** obtain execution approval for approved D02/D05 sources; enforce confirmed D20 training isolation; obtain companyos_test approval (D21); approve operational policies and Viewer allowlist (D06–D10/D18) before API contract sign-off; choose identity/session and hosting before public implementation/deployment (D09/D17). Current database equivalence, backup validity, and execution authorization are mandatory operational gates, not facts established by this document.
 
 **Confirmed environment boundary:** preserve company_db; companyos_dev is the approved isolated target, with provisioning separately gated. companyos_test remains proposed. **Recommendations, not additional scope:** use exact Decimal types; retain existing constraint names; defer all new indexes/tables; validate nonblank input in the application first. No audit/history or currency-conversion subsystem is proposed. Mixing/importing training records is outside the confirmed scope; a global USD setting cannot establish row provenance.
 
@@ -158,4 +158,8 @@ The above Phase 0 specification retains unresolved decisions. See [migration pla
 
 Baseline models now exist in [models.py](../apps/api/app/db/models.py), using [Base](../apps/api/app/db/base.py). Exactly four tables and 16 columns preserve the exported types, signed IDs, nullability, server defaults, named constraints/indexes and table options. Parent collections use passive_deletes="all" with no ORM delete cascades. Unique keys are represented once; no additional business tables/indexes or exported AUTO_INCREMENT counters are introduced.
 
-Salary remains DECIMAL(10,0) and hire_date retains (curdate()) in B0; T1/D02 precision and T2/D05 default removal remain pending. USD semantics do not relabel training records. Offline definition/compilation tests pass; database enforcement and loaded/unloaded deletion behavior still require separately approved isolated integration testing. No database or Engine was created or accessed.
+Salary remains DECIMAL(10,0) and hire_date retains (curdate()) in B0; T1/D02 precision and T2/D05 default removal were subsequently approved in S1-04; B0 remains unchanged. USD semantics do not relabel training records. Offline definition/compilation tests pass; database enforcement and loaded/unloaded deletion behavior still require separately approved isolated integration testing. No database or Engine was created or accessed.
+
+## S1-04 approved target metadata
+
+Current models represent T2: salary DECIMAL(12,2) NOT NULL with no default; hire_date DATE NULL with no server or Python default. Every other definition and relationship is unchanged. B0 remains historical. No database is verified at T2: sources were authored and tested offline only. USD monthly semantics apply only to new approved MVP data, never training records.

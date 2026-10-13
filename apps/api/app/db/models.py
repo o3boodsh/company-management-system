@@ -1,4 +1,4 @@
-"""Four ORM mappings for the exported B0 schema, not the proposed T1/T2 target."""
+"""Four ORM mappings for the approved T2 target; no migrations run on import."""
 
 from datetime import date
 from decimal import Decimal
@@ -57,11 +57,11 @@ class Employee(Base):
 
     employee_id: Mapped[int] = mapped_column(mysql.INTEGER(unsigned=False), primary_key=True, nullable=False, autoincrement=True)
     full_name: Mapped[str] = mapped_column(mysql.VARCHAR(100), nullable=False)
-    salary: Mapped[Decimal] = mapped_column(mysql.DECIMAL(10, 0, asdecimal=True), nullable=False)
+    salary: Mapped[Decimal] = mapped_column(mysql.DECIMAL(12, 2, asdecimal=True), nullable=False)
     department_id: Mapped[int | None] = mapped_column(mysql.INTEGER(unsigned=False), nullable=True, server_default=text("NULL"))
     email: Mapped[str | None] = mapped_column(mysql.VARCHAR(150), nullable=True, server_default=text("NULL"))
     employee_status: Mapped[str] = mapped_column(mysql.VARCHAR(20), nullable=False, server_default=text("'Active'"))
-    hire_date: Mapped[date | None] = mapped_column(mysql.DATE(), nullable=True, server_default=text("(curdate())"))
+    hire_date: Mapped[date | None] = mapped_column(mysql.DATE(), nullable=True)
     department: Mapped[Department | None] = relationship(back_populates="employees")
     assignments: Mapped[list["EmployeeProject"]] = relationship(
         back_populates="employee", cascade="save-update, merge", passive_deletes="all"
